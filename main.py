@@ -14,7 +14,8 @@ with open("TOKEN.txt") as f:
   token = f.read().strip()
 
 async def main():
-  bot = Bot(command_prefix="!", intents=intents, activity=discord.Game(name="!Help")) 
+  bot = Bot(command_prefix="!", intents=intents, activity=discord.Game(name="/Help")) 
+  bot.remove_command('help')
   await bot.load_extension("commands")
   await bot.load_extension("events")
   await bot.start(token)

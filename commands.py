@@ -23,52 +23,59 @@ class Commands(Cog):
 
     @command()
     async def points(self, ctx: Context,a:str,b:int,member:discord.Member = None):
+            guildid=ctx.guild.id
             if member == None:
                 await ctx.send("Wrong command! Please use ``!points add/remove <value> <@username>``")
             elif a == "add":
-                cur.execute("SELECT points FROM user WHERE id=?", (ctx.author.id,))
+                cur.execute("SELECT points FROM users WHERE id=? AND guildid=?", (ctx.author.id, guildid))
                 user_points = cur.fetchone()[0]
                 user_points_after = user_points + b
-                cur.execute("UPDATE user SET points=? WHERE id=?", (user_points_after, ctx.author.id))
+                cur.execute("UPDATE users SET points=? WHERE id=? AND guildid=?", (user_points_after, ctx.author.id, guildid))
                 con.commit()
             elif a == "remove":
-                cur.execute("SELECT points FROM user WHERE id=?", (ctx.author.id,))
+                cur.execute("SELECT points FROM users WHERE id=? AND guildid=?", (ctx.author.id,guildid))
                 user_points = cur.fetchone()[0]
                 user_points_after = user_points - b 
-                cur.execute("UPDATE user SET points=? WHERE id=?", (user_points_after, ctx.author.id))
+                cur.execute("UPDATE users SET points=? WHERE id=? AND guildid=?", (user_points_after, ctx.author.id, guildid))
                 con.commit()
     @points.error
     async def on_points_error(self, ctx: Context, error: commands.MissingRequiredArgument) -> None:
         await ctx.send("Wrong command! Please use ``!points add/remove <value> <@username>``")
 
+    
+    
     @command() #will make shop and economy system soon
     async def shop(self, ctx):
-        embed=discord.Embed(title="Shop page x", description="Here you can buy some stuff!", color=discord.Color.yellow())
+        file = discord.File("seks.png")
+        embed=discord.Embed(title="Welcome to the shop!", description="Here you can buy some stuff!", color=discord.Color.yellow())
         embed.set_author(name="")
         embed.set_thumbnail(url="")
-        embed.add_field(name="[1] TimeOut someone!", value="You can mute someone for 6 hours :)", inline=True)
-        embed.add_field(name="[2] Gamba!", value="Use Wheel of Fortune! Disclaimer: you can win temporary ban :flushed:", inline=False)
+        embed.add_field(name="How do I buy something?", value="You may use command: `!shop buy [id]` or contact moderators. (COMMAND IN DEVELOPMENT)", inline=True)
+        embed.add_field(name="How do I collect points?", value='Giveaways, leveling, collecting them from moderators. For more information type `/help` and choose `Economy`')
+        embed.add_field(name="How do I sell or give someone recently bought things?", value="To sell use `!shop sell [your equipment id]`, to hand over use `!equipment-give @member [your equipment id]`", inline=False)
         embed.add_field(name="", value= "", inline=True)
         embed.add_field(name="", value= "", inline=True)
         embed.add_field(name="", value= "", inline=True)
-        embed.set_footer(text="BOT made by Cedi!")
-        await ctx.send(embed=embed)
-    
+        embed.set_image(url="attachment://seks.png")
+        embed.set_footer(text="Thank you for using Aurora!")
+        await ctx.send(embed=embed, file=file)
+        
     @command()
     async def profile(self, ctx, member:discord.Member = None):
         if member == None:
             member = ctx.author
-        cur.execute("SELECT level_id FROM user WHERE id=?", (member.id,))
+        guildid=ctx.guild.id
+        cur.execute("SELECT levelid FROM users WHERE id=? AND guildid=?", (member.id,guildid))
         level_id = cur.fetchone()[0]            #gets user's level
         cur.execute("SELECT min_exp FROM level WHERE id=?", (level_id + 1,))
         minimal_exp = cur.fetchone()[0]         #gets minimal exp to achieve user's level+1
-        cur.execute("SELECT exp FROM user WHERE id=?", (member.id,))
+        cur.execute("SELECT exp FROM users WHERE id=? AND guildid=?", (member.id,guildid))
         user_exp = cur.fetchone()[0]            #gets current user's exp
         cur.execute("SELECT min_exp FROM level WHERE id=?", (level_id,))
         prev_min_exp = cur.fetchone()[0]        #gets minimal exp to achieve user's current level
         exp_perc = minimal_exp - prev_min_exp           
         user_exp_perc = user_exp - prev_min_exp         
-        guwno = user_exp_perc / exp_perc                 
+        user_perc = user_exp_perc / exp_perc                 
         level_progress = round(user_exp_perc / exp_perc, 2)        
         green = ceil(level_progress * 10)           
         gray = 10 - green           
@@ -78,14 +85,14 @@ class Commands(Cog):
         embed.set_thumbnail(url=member.avatar.url)
         number_len = len("{} / {} exp".format(user_exp_perc, exp_perc))
         print(number_len)
-        embed.add_field(name="{} / {} exp                   :mag_right: {}%".format(user_exp_perc, exp_perc, round(guwno*100)),value="", inline=True)
+        embed.add_field(name="{} / {} exp                   :mag_right: {}%".format(user_exp_perc, exp_perc, round(user_perc*100)),value="", inline=True)
         embed.add_field(name="Number of your messages:", value="You have written {} messages so far!".format(user_exp), inline=False)
-        cur.execute("SELECT points FROM user WHERE id=?",(member.id,))
+        cur.execute("SELECT points FROM users WHERE id=? AND guildid=?",(member.id,guildid))
         points = str(cur.fetchone()[0])
         embed.add_field(name="Current points:", value= "Local: "+points+"\n Global: Soon!", inline=True)
         embed.add_field(name="Equipment:", value= "Nothin's here! For now...", inline=True)
         embed.add_field(name="Warns:", value= "Placeholder", inline=True)
-        embed.set_footer(text="BOT made by Cedi!")
+        embed.set_footer(text="Thanks for using Aurora!")
         await ctx.send(embed=embed)
 
     @command()
@@ -102,6 +109,8 @@ class Commands(Cog):
     async def on_embed_error(self,ctx, error: commands.MissingRequiredArgument) -> None:
         await ctx.send("Unknown command! Please use `!embed 'title' 'description' 'color'[blue, red, green] 'field name' 'field value' 'thumbnail (write 0 if none)' 'img (write 0 if none)'` ")
 
+    
+
     class HelpSelect(discord.ui.Select):
         def __init__(self):
             # Set the options that will be presented inside the dropdown
@@ -109,8 +118,8 @@ class Commands(Cog):
                 discord.SelectOption(label='Economy', description='Introduction and help abouts points, shop etc.', emoji='🪙'),
                 discord.SelectOption(label='Level', description='Raise with each message and conquer rankings!', emoji='👑'),
                 discord.SelectOption(label='Moderation', description='Learn how to punish bad kittens!', emoji='⚖️'),
-                discord.SelectOption(label='Developer', description='Some info about me, this bot author!', emoji='🐸'),
-                #discord.SelectOption(label='placeholder', description='placeholder', emoji='')
+                discord.SelectOption(label='Developer', description="Some info about me, Aurora's creator", emoji='🐸'),
+                discord.SelectOption(label='Setting up', description='Description of how to set up Aurora for your server', emoji='⚙️')
             ]
             super().__init__(placeholder='Choose your topic...', min_values=1, max_values=1, options=options)
         
@@ -118,7 +127,7 @@ class Commands(Cog):
         async def callback(self,interaction: discord.Interaction):
             if self.values[0]=="Level":
                 embed=discord.Embed(title="Level info",color=0xffff00)
-                embed.add_field(name="How does it work?", value="For every message on selected (by administration) channels you will get few exp points.\
+                embed.add_field(name="How does it work?", value="For every message on selected (by moderation) channels you will get few exp points.\
                                 \nBy collecting those points you can get higher levels")
                 embed.add_field(name="Commands", value="`!exp` **[for mods]** - allows to add/remove chosen amount of user's exp\
                                 \n`!profile` - shows the most important info about you")
@@ -141,7 +150,76 @@ class Commands(Cog):
                 embed.add_field(name="Support me", value="Coming soon!")
                 embed.set_footer(text="Thank you for using Aurora! <3")          
                 await interaction.response.send_message(embed=embed)
+            if self.values[0]=="Setting up":
+                if interaction.user.guild_permissions.administrator:
+                    embed = discord.Embed(title="Setting up Aurora", description="Most important commands to make it work!")
+                    embed.add_field(name="Few steps to setup your server:", value="`Step 1:` Use `!create_data_base` command to make a place\
+                                    for your data in Aurora's DataBase.\n`Step 2:` Use `!set_greeting_channel id` to, obviously, set\
+                                    a channel where Aurora will greet new users.\n`Step 3:` Use `!set_help_channel id` to choose\
+                                    a channel on which threads with anonymous help will be made. For more info type `!ahelp`\
+                                    \n`Step 4:` Now, you have to choose a muted role for your server. This role will be given to anyone\
+                                    who will get Time-Outed. `!set_muted_role id`")
+                    await interaction.response.send_message("Hello! At first I'd like to thank you and your community for using Aurora.\
+                                                            I'll do my best to keep y'all satisfied with Aurora's work.\n`~Cedi, Aurora's creator`", embed=embed)
+                    
+                else:
+                    await interaction.response.send_message("This category is for administrators only!", ephemeral=True)
 
+    @command()
+    async def ahelp(ctx, self):
+        embed=discord.Embed(title="Anonymous chat", description="")
+        embed.add_field(name="Anonymous chat is a project based on my idea to create a safe-place for talking about your and our problems e.g. suggestions, resolving conflicts, complaining anonymously or just talking about your bothers", value=" It works\
+                            quite simple - users press the button, which makes a new thread (in the chosen by moderation channel) which \
+                            can be seen only by mods. Then, Aurora sends a short message with few instructions to the user \
+                            who pressed the button. From now on, the user can DM Aurora, and it will copy and post each of user's messages \
+                            in the previosly created thread. What's more, every mods' message in that thread will also be copied \
+                            and then sent to said user.")
+        embed.set_footer(text="Thanks for using Aurora!")
+        await self.send(embed=embed)
+    
+    ### SETTING UP ###
+    @command()
+    async def create_data_base(self, ctx):
+        global serverid
+        serverid = ctx.message.guild.id
+        print(serverid)
+        values = (int(serverid), 0,0)
+        try:
+            cur.execute("INSERT INTO guild VALUES(?,?,?)", values)
+            con.commit()
+        except sqlite3.IntegrityError:
+            await ctx.send("This server is `already in the database!`")
+        
+    @command()  #sets channel used to greet new members
+    async def set_greeting_channel(self, ctx, id):
+        cur.execute("UPDATE guild SET greet_ch=? WHERE id=?", (id, ctx.message.guild.id))
+        con.commit()
+        await ctx.send("Greeting channel successfully updated!")
+    @set_greeting_channel.error
+    async def on_set_greeting_channel_error(self, ctx, error:commands.MissingRequiredArgument):
+        await ctx.send("Something went wrong! Please provide your chosen `channel id`.")
+
+    @command()  #sets channel for anonymous help threads
+    async def set_help_channel(self, ctx, id):
+        cur.execute("UPDATE guild SET help_ch=? WHERE id=?",(id,ctx.message.guild.id))
+        con.commit()
+        await ctx.send("Help channel successfully updated!")
+    @set_help_channel.error
+    async def on_set_help_channel_error(self, ctx, error:commands.MissingRequiredArgument):
+        await ctx.send("Something went wrong! Please provide your chosen `channel id`.")
+        
+    
+    @command() #sets up a role for muted users
+    async def set_mute_role(self, ctx, id):
+        cur.execute("UPDATE guild SET muted_role=? WHERE id=?",(id,ctx.message.guild.id))
+        con.commit()
+        await ctx.send("Mute role successfully updated!")
+    @set_mute_role.error
+    async def on_set_muted_role_error(self, ctx, error:commands.MissingRequiredArgument):
+        await ctx.send("Something went wrong! Please provide your chosen `role id`.")
+        
+    
+    
     class HelpSelectView(discord.ui.View):
         def __init__(self):
             super().__init__()
@@ -184,10 +262,10 @@ class Commands(Cog):
 
     @command()
     async def thread_del(self, ctx, id):
-        cur.execute(f"SELECT id FROM user WHERE thread={id}")
+        cur.execute(f"SELECT id FROM users WHERE thread={id}")
         threadauthor=cur.fetchone()[0]
         print(threadauthor)
-        cur.execute(f"UPDATE user SET thread=? WHERE id=?", (0, threadauthor))
+        cur.execute(f"UPDATE users SET thread=? WHERE id=?", (0, threadauthor))
         con.commit()
         
 
