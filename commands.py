@@ -1,7 +1,7 @@
 from discord.ext.commands import Cog, Bot, Context, command, Command
 from discord import Intents
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 import discord
 import sqlite3
 from discord.ext import commands
@@ -10,6 +10,10 @@ from PIL import Image, ImageDraw, ImageFont
 import random
 from io import BytesIO
 import discord
+from typing import Literal
+import math
+import asyncio
+
 
 
 global cur, con
@@ -41,12 +45,59 @@ class Commands(Cog):
     @points.error
     async def on_points_error(self, ctx: Context, error: commands.MissingRequiredArgument) -> None:
         await ctx.send("Wrong command! Please use ``!points add/remove <value> <@username>``")
+    
+    
+    class ShopButton(discord.ui.View):
+        def __init__(self):
+            self.page = None
+            cur.execute(f"SELECT * FROM shop WHERE guildid=?",(id,))
+            self.items = cur.fetchall()
+            self.pages = math.ceil(len(self.items) / 6)
+            super().__init__()
+        
+        @discord.ui.button(label='', style=discord.ButtonStyle.green, emoji='◀️')              
+        async def receive2(self, interaction:discord.Interaction, button1: discord.ui.Button):
+            
+            if self.page==1:
+                self.page=self.pages
+            elif self.page==None:
+                self.page=self.pages
+            else:
+                self.page-=1
+            print(self.page)
+            e=discord.Embed(title=f"Shop page {self.page}", description="Here you can buy things using `!shop buy id`",color=discord.Color.yellow())
+            for row in self.items[(self.page-1)*6:6*(self.page)]:
+                        column1_value = row[1]
+                        column2_value = row[2]
+                        column3_value = row[3]
+                        column4_value = row[4]
+                        e.add_field(name="", value=f"[ {column1_value} ] **{column2_value}**\n*{column4_value}*\nPrice: **{column3_value}** points", inline=False)
+                        e.set_footer(text=f"Page {self.page}/{self.pages}")
+            await interaction.response.edit_message(content="",embed=e,attachments="")
+                
 
-    
-    
+        @discord.ui.button(label='', style=discord.ButtonStyle.green, emoji="▶️")
+        async def receive(self, interaction: discord.Interaction,button: discord.ui.Button):    
+            if self.page==self.pages:
+                self.page=self.pages-(self.pages-1)
+            elif self.page==None:
+                self.page=1
+            else:
+                self.page+=1
+            e=discord.Embed(title=f"Shop page {self.page}", description="Here you can buy things using `!shop buy id`",color=discord.Color.yellow())
+            for row in self.items[(self.page-1)*6:6*(self.page)]:
+                    column1_value = row[1]
+                    column2_value = row[2]
+                    column3_value = row[3]
+                    column4_value = row[4]
+                    e.add_field(name="", value=f"[ {column1_value} ] **{column2_value}**\n*{column4_value}*\nPrice: **{column3_value}** points", inline=False)
+                    e.set_footer(text=f"Page {self.page}/{self.pages}")
+            await interaction.response.edit_message(embed=e, view=self, attachments="")
+
+          
     @command() #will make shop and economy system soon
     async def shop(self, ctx):
-        file = discord.File("seks.png")
+        file = discord.File(fp="seks.png",filename="seks.png")
         embed=discord.Embed(title="Welcome to the shop!", description="Here you can buy some stuff!", color=discord.Color.yellow())
         embed.set_author(name="")
         embed.set_thumbnail(url="")
@@ -58,7 +109,19 @@ class Commands(Cog):
         embed.add_field(name="", value= "", inline=True)
         embed.set_image(url="attachment://seks.png")
         embed.set_footer(text="Thank you for using Aurora!")
-        await ctx.send(embed=embed, file=file)
+        global id 
+        id=ctx.guild.id
+        await ctx.send(embed=embed, file=file,view=Commands.ShopButton())
+
+    @command()
+    async def shop_add(self, ctx, id:int, name:str, price:int, description:str):
+        values=(ctx.guild.id,id,name,price,description)
+        cur.execute(f"INSERT INTO shop VALUES(?,?,?,?,?)", (values))
+        con.commit()
+
+    @command()
+    async def commands_list(self,ctx):
+        print("s")
         
     @command()
     async def profile(self, ctx, member:discord.Member = None):
@@ -141,27 +204,16 @@ class Commands(Cog):
                 await interaction.response.send_message(embed=embed)
             if self.values[0]=="Developer":
                 embed=discord.Embed(title="Developer", color=0x008000)
-                embed.add_field(name="My socials", value="[GitHub](https://github.com/CediDev)\
-                                \n[Aurora Support Server](https://discord.gg/mcnpFgqg)")
-                embed.add_field(name="Contact me", value="`Discord:` cedisz\
-                                \n`Email:` c3disz@gmail.com")
-                embed.add_field(name="About me", value="I am a Polish student currently learning to code, especially using python.\
-                                \nFeel free to contact me if needed.", inline=False)
-                embed.add_field(name="Support me", value="Coming soon!")
+                file = discord.File(fp="info.png",filename="info.png")
+                embed.set_image(url="attachment://info.png")
+                #embed.add_field(name="My socials", value="[GitHub](https://github.com/CediDev)\
+                                #\n[Aurora Support Server](https://discord.gg/mcnpFgqg)")
                 embed.set_footer(text="Thank you for using Aurora! <3")          
-                await interaction.response.send_message(embed=embed)
+                await interaction.response.send_message(embed=embed, file=file)
             if self.values[0]=="Setting up":
                 if interaction.user.guild_permissions.administrator:
-                    embed = discord.Embed(title="Setting up Aurora", description="Most important commands to make it work!")
-                    embed.add_field(name="Few steps to setup your server:", value="`Step 1:` Use `!create_data_base` command to make a place\
-                                    for your data in Aurora's DataBase.\n`Step 2:` Use `!set_greeting_channel id` to, obviously, set\
-                                    a channel where Aurora will greet new users.\n`Step 3:` Use `!set_help_channel id` to choose\
-                                    a channel on which threads with anonymous help will be made. For more info type `!ahelp`\
-                                    \n`Step 4:` Now, you have to choose a muted role for your server. This role will be given to anyone\
-                                    who will get Time-Outed. `!set_muted_role id`")
                     await interaction.response.send_message("Hello! At first I'd like to thank you and your community for using Aurora.\
-                                                            I'll do my best to keep y'all satisfied with Aurora's work.\n`~Cedi, Aurora's creator`", embed=embed)
-                    
+                                                            I'll do my best to keep y'all satisfied with Aurora's work.\n`~Cedi, Aurora's creator`", view=Commands.SetupFirstAndSecondPage(), embed=Commands.SetupFirstAndSecondPage.embed)
                 else:
                     await interaction.response.send_message("This category is for administrators only!", ephemeral=True)
 
@@ -177,19 +229,58 @@ class Commands(Cog):
         embed.set_footer(text="Thanks for using Aurora!")
         await self.send(embed=embed)
     
+    
+    @app_commands.command(name="report", description="Here you can report Aurora's issues or other things you think me, the developer, should know about.")
+    @app_commands.describe(type='Specify the type of your problem',description='Describe it in details')
+    async def schedule(self, interaction: discord.Interaction, type: Literal["Bug", "Suggestion", "Other"], description:str):
+        channel = self.bot.get_channel(1129507179527930007)
+        await channel.send(f"{interaction.user.name} | Report id: {interaction.id}\
+                           \n- Type: **{type}**\n{description}")
+        await interaction.response.send_message("Message sent, thank you!", ephemeral=True)
+
+    
     ### SETTING UP ###
-    @command()
-    async def create_data_base(self, ctx):
-        global serverid
-        serverid = ctx.message.guild.id
-        print(serverid)
-        values = (int(serverid), 0,0)
-        try:
-            cur.execute("INSERT INTO guild VALUES(?,?,?)", values)
-            con.commit()
-        except sqlite3.IntegrityError:
-            await ctx.send("This server is `already in the database!`")
+    
+    class SetupFirstAndSecondPage(discord.ui.View):
+        embed = discord.Embed(title="placeholder", description="placeholder")
         
+        
+        
+        
+        
+        # add command for double exp roles, channels
+        # add command for double points roles 
+        
+    
+    @command()
+    async def setup(self, ctx):
+        if ctx.author.guild_permissions.administrator:
+            values = (ctx.guild.id, 0,0,0,0)
+            try:
+                #cur.execute("INSERT INTO guild VALUES(?,?,?,?,?)", values)
+                #con.commit()
+                await ctx.send("(1/3) Server added to Aurora's DataBase.")
+                async def changing_perms(self, ctx):
+                    await ctx.guild.create_role(name="Muted")
+                    role = discord.utils.get(ctx.guild.roles, name="Muted")
+                    perms = ctx.channel.overwrites_for(role )
+                    perms.send_messages=False
+                    perms.add_reactions=False
+                    #cur.execute("UPDATE guild SET muted_role=? WHERE id=?",(role.id,ctx.message.guild.id))
+                    #con.commit()
+                    await ctx.send("(2/3) Role for muted users has been created.")
+                    for i in ctx.guild.channels:
+                        channel = ctx.bot.get_channel(i.id)
+                        await channel.set_permissions(role, overwrite=perms)
+                await changing_perms(self, ctx)
+                emoji = discord.utils.get(self.bot.emojis, name='1002926512720326716')
+                await ctx.send("- **Good Job!**, the first stage has been completed "+ str(emoji))
+            except sqlite3.IntegrityError:
+                await ctx.send("This server is `already in the database!`")
+        else:
+            await ctx.send("You've got no permissions.")
+        
+    
     @command()  #sets channel used to greet new members
     async def set_greeting_channel(self, ctx, id):
         cur.execute("UPDATE guild SET greet_ch=? WHERE id=?", (id, ctx.message.guild.id))
@@ -207,18 +298,20 @@ class Commands(Cog):
     @set_help_channel.error
     async def on_set_help_channel_error(self, ctx, error:commands.MissingRequiredArgument):
         await ctx.send("Something went wrong! Please provide your chosen `channel id`.")
-        
-    
-    @command() #sets up a role for muted users
-    async def set_mute_role(self, ctx, id):
-        cur.execute("UPDATE guild SET muted_role=? WHERE id=?",(id,ctx.message.guild.id))
+
+    @command()
+    async def set_staff_role(self, ctx, id):
+        cur.execute("UPDATE guild SET staff_role=? WHERE id=?",(id, ctx.message.guild.id))
         con.commit()
-        await ctx.send("Mute role successfully updated!")
-    @set_mute_role.error
-    async def on_set_muted_role_error(self, ctx, error:commands.MissingRequiredArgument):
+        await ctx.send("Staff role successfully updated!")
+    @set_staff_role.error
+    async def on_set_staff_role_error(self, ctx, error:commands.MissingRequiredArgument):
         await ctx.send("Something went wrong! Please provide your chosen `role id`.")
         
-    
+    @command()
+    async def set_level_role(self, ctx, id, roleid):
+        cur.execute("INSERT INTO levelroles VALUES(?,?,?)",(ctx.guild.id, roleid, id))
+        con.commit()
     
     class HelpSelectView(discord.ui.View):
         def __init__(self):
